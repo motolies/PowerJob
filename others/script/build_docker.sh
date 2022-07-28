@@ -1,66 +1,66 @@
 #!/bin/bash
-# -p：允许后面跟一个字符串作为提示 -r：保证读入的是原始内容，不会发生任何转义
-read -r -p "请输入Dockedr镜像版本:" version
-echo "即将构建的 server 镜像：powerjob-server:$version"
-echo "即将构建的 agent 镜像：powerjob-agent:$version"
-read -r -p "任意键继续:"
+# -p: 문자열이 프롬프트로 뒤따를 수 있도록 허용 -r: 이스케이프 없이 원본 내용을 읽도록 합니다.
+read -r -p "Docker 이미지 버전을 입력하십시오:" version
+echo "빌드할 서버 이미지: powerjob-server:$version"
+echo "빌드할 에이전트 이미지: powerjob-agent:$version"
+read -r -p "모든 키를 사용하여 계속:"
 
-# 一键部署脚本，请勿挪动脚本
+# 원클릭 배포 스크립트, 스크립트를 이동하지 마십시오
 cd `dirname $0`/../.. || exit
 
-read -r -p "是否进行maven构建（y/n）:" needmvn
+read -r -p "maven 빌드 여부(y/n):" needmvn
 if [ "$needmvn" = "y" ] || [  "$needmvn" = "Y" ]; then
-  echo "================== 构建 jar =================="
+  echo "================== jar 만들기 =================="
   # mvn clean package -Pdev -DskipTests -U -e -pl powerjob-server,powerjob-worker-agent -am
-  # -U：强制检查snapshot库 -pl：指定需要构建的模块，多模块逗号分割 -am：同时构建依赖模块，一般与pl连用 -Pxxx：指定使用的配置文件
+  # -U: 스냅샷 라이브러리 강제 검사 -pl: 여러 모듈에 대해 쉼표로 구분하여 빌드할 모듈 지정 -am: 종속 모듈을 동시에 빌드, 일반적으로 pl과 함께 사용 -Pxxx: 구성 파일 지정 사용
   mvn clean package -Pdev -DskipTests -U -e
-  echo "================== 拷贝 jar =================="
+  echo "================== jar 복사 =================="
   /bin/cp -rf powerjob-server/powerjob-server-starter/target/*.jar powerjob-server/docker/powerjob-server.jar
   /bin/cp -rf powerjob-worker-agent/target/*.jar powerjob-worker-agent/powerjob-agent.jar
   ls -l powerjob-server/docker/powerjob-server.jar
   ls -l powerjob-worker-agent/powerjob-agent.jar
 fi
 
-echo "================== 关闭老应用 =================="
+echo "================== 이전 버전 docker stop =================="
 docker stop powerjob-server
 docker stop powerjob-agent
 docker stop powerjob-agent2
-echo "================== 删除老容器 =================="
+echo "================== 이전 버전 docker remove =================="
 docker container rm powerjob-server
 docker container rm powerjob-agent
 docker container rm powerjob-agent2
-read -r -p "是否重新构建镜像（y/n）:" rebuild
+read -r -p "이미지를 다시 빌드할지 여부（y/n）:" rebuild
 if [ "$rebuild" = "y" ] || [  "$rebuild" = "Y" ]; then
-  echo "================== 删除旧镜像 =================="
+  echo "================== 이전 버전의 도커 이미지 삭제 =================="
   docker rmi -f tjqq/powerjob-server:$version
   docker rmi -f tjqq/powerjob-agent:$version
-  echo "================== 构建 powerjob-server 镜像 =================="
+  echo "================== powerjob-server 이미지 빌드 =================="
   docker build -t tjqq/powerjob-server:$version powerjob-server/docker/. || exit
-  echo "================== 构建 powerjob-agent 镜像 =================="
+  echo "================== powerjob-agent 이미지 빌드 =================="
   docker build -t tjqq/powerjob-agent:$version powerjob-worker-agent/. || exit
 
-  read -r -p "是否正式发布该镜像（y/n）:" needrelease
+  read -r -p "이미지를 공식적으로 공개할지 여부（y/n）:" needrelease
   if [ "$needrelease" = "y" ] || [  "$needrelease" = "Y" ]; then
-    read -r -p "三思！请确保当前处于已发布的Master分支！（y/n）:" needrelease
+    read -r -p "경고! 현재 릴리스된 마스터 분기에 있는지 확인하십시오!（y/n）:" needrelease
     if [ "$needrelease" = "y" ] || [  "$needrelease" = "Y" ]; then
-      echo "================== 正在推送 server 镜像到中央仓库 =================="
+      echo "================== 서버 이미지를 중앙 저장소로 푸시 =================="
       docker push tjqq/powerjob-server:$version
-      echo "================== 正在推送 agent 镜像到中央仓库 =================="
+      echo "================== 에이전트 이미지를 중앙 저장소로 푸시 =================="
       docker push tjqq/powerjob-agent:$version
     fi
   fi
 fi
 
 
-read -r -p "是否启动 server & agent（y/n）:" startup
+read -r -p "시작여부 server & agent（y/n）:" startup
 if [ "$startup" = "y" ] || [  "$startup" = "Y" ]; then
-  # 启动应用（端口映射、数据路径挂载）
-  ## -d：后台运行
-  ## -p：指定端口映射，主机端口:容器端口
-  ## --name：指定容器名称
-  ## -v（--volume）：挂载目录，宿主机目录：docker内目录，写入docker内路径的数据会被直接写到宿主机上，常用于日志文件
-  ## --net=host：容器和宿主机共享网络（容器直接使用宿主机IP，性能最好，但网络隔离较差）
-  echo "================== 准备启动 powerjob-server =================="
+  # 애플리케이션 시작(포트 매핑, 데이터 경로 마운트)
+  ## -d: 백그라운드에서 실행
+  ## -p: 포트 매핑 지정, 호스트 포트: 컨테이너 포트
+  ## --name: 컨테이너 이름 지정
+  ## -v (--volume): 마운트 디렉토리, 호스트 디렉토리: 도커의 디렉토리, 도커의 경로에 기록된 데이터는 호스트에 직접 기록되며, 종종 로그 파일에 사용됩니다.
+  ## --net=host: 컨테이너와 호스트가 네트워크를 공유함(컨테이너는 호스트 IP를 직접 사용하므로 성능은 최상이지만 네트워크 분리가 나쁨)
+  echo "================== powerjob-server를 시작할 준비가 되었습니다. =================="
   docker run -d \
          --name powerjob-server \
          -p 7700:7700 -p 10086:10086 -p 5001:5005 -p 10001:10000 \
@@ -73,10 +73,10 @@ if [ "$startup" = "y" ] || [  "$startup" = "Y" ]; then
 #  tail -f -n 1000 ~/docker/powerjob-server/logs/powerjob-server-application.log
 
   sleep 30
-  echo "================== 准备启动 powerjob-client =================="
+  echo "================== powerjob-client를 시작할 준비가 되었습니다. =================="
   serverIP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' powerjob-server)
   serverAddress="$serverIP:7700"
-  echo "使用的Server地址：$serverAddress"
+  echo "사용된 서버 주소：$serverAddress"
   docker run -d \
          --name powerjob-agent \
          -p 27777:27777 -p 5002:5005 -p 10002:10000 \

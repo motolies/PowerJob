@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- 该 maven 配置文件将成为 oms-server 所使用的 maven 配置文件 -->
-<!-- The maven configuration file will become the maven configuration file used by oms-server -->
-
 <!--
 Licensed to the Apache Software Foundation (ASF) under one
 or more contributor license agreements.  See the NOTICE file
@@ -46,9 +43,8 @@ under the License.
  | values (values used when the setting is not specified) are provided.
  |
  |-->
-<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
-          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
+<settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 https://maven.apache.org/xsd/settings-1.2.0.xsd">
   <!-- localRepository
    | The path to the local repository maven will use to store artifacts.
    |
@@ -159,6 +155,19 @@ under the License.
       <url>http://my.repository.com/repo/path</url>
     </mirror>
      -->
+    <mirror>
+      <id>maven-default-http-blocker</id>
+      <mirrorOf>external:http:*</mirrorOf>
+      <name>Pseudo repository to mirror external repositories initially using HTTP.</name>
+      <url>http://0.0.0.0/</url>
+      <blocked>true</blocked>
+    </mirror>
+    <mirror>
+      <id>alimaven</id>
+      <name>aliyun maven</name>
+      <url>http://maven.aliyun.com/nexus/content/groups/public/</url>
+      <mirrorOf>central</mirrorOf>
+    </mirror>
   </mirrors>
 
   <!-- profiles
